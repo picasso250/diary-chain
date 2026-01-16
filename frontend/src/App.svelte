@@ -214,13 +214,13 @@
           
           <header class="mb-2 flex flex-wrap items-baseline gap-x-3 text-xs text-stone-500">
             <span class="text-red-400 font-bold">{entry.timestamp}</span>
-            <span class="font-mono">{entry.user.slice(0, 8)}</span>
+            <span class="font-mono">{entry.user.slice(0, 6)}...{entry.user.slice(-4)}</span>
             <a 
               href={`https://arbiscan.io/tx/${entry.hash}`} 
               target="_blank" 
               class="hover:text-stone-300 hover:underline decoration-stone-700"
             >
-              #{entry.blockNumber}
+              {entry.hash.slice(0, 6)}...{entry.hash.slice(-4)}
             </a>
           </header>
           
