@@ -14,6 +14,7 @@
   let specialAttentionList = $state([]);
   let newAttentionAddress = $state("");
   let encryptionPassword = $state("");
+  let showSettings = $state(false);
 
   // 响应式过滤
   let filteredEntries = $derived.by(() => {
@@ -273,53 +274,65 @@
       </div>
     </section>
 
-    <!-- Settings: Encryption & Attention -->
-    <section class="mb-12 grid grid-cols-1 md:grid-cols-2 gap-6">
-      <div class="bg-stone-950 p-6 rounded border border-stone-800">
-        <h3 class="text-sm font-bold text-red-500 uppercase mb-4 tracking-widest">Encryption</h3>
-        <input
-          type="password"
-          bind:value={encryptionPassword}
-          placeholder="Set Encryption Password"
-          class="w-full bg-stone-900 border border-stone-800 p-2 text-sm outline-none focus:border-red-500 transition-colors"
-        />
-        <p class="text-[10px] text-stone-600 mt-2 italic">
-          If set, new diaries will be encrypted. You must use the SAME password to decrypt them later.
-        </p>
-      </div>
+    <!-- Settings Toggle -->
+    <div class="mb-6 flex justify-end">
+      <button
+        onclick={() => showSettings = !showSettings}
+        class="text-[10px] text-stone-500 hover:text-red-500 transition-colors uppercase tracking-widest flex items-center gap-2"
+      >
+        {showSettings ? '[-] Hide Settings' : '[+] Show Settings'}
+      </button>
+    </div>
 
-      <div class="bg-stone-950 p-6 rounded border border-stone-800">
-        <h3 class="text-sm font-bold text-red-500 uppercase mb-4 tracking-widest">Special Attention</h3>
-        <div class="flex gap-2 mb-4">
+    {#if showSettings}
+      <!-- Settings: Encryption & Attention -->
+      <section class="mb-12 grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div class="bg-stone-950 p-6 rounded border border-stone-800">
+          <h3 class="text-sm font-bold text-red-500 uppercase mb-4 tracking-widest">Encryption</h3>
           <input
-            type="text"
-            bind:value={newAttentionAddress}
-            placeholder="Address (0x...)"
-            class="flex-1 bg-stone-900 border border-stone-800 p-2 text-xs outline-none focus:border-red-500 transition-colors"
+            type="password"
+            bind:value={encryptionPassword}
+            placeholder="Set Encryption Password"
+            class="w-full bg-stone-900 border border-stone-800 p-2 text-sm outline-none focus:border-red-500 transition-colors"
           />
-          <button
-            onclick={addAttention}
-            class="px-4 py-2 bg-stone-100 text-stone-900 text-xs font-bold hover:bg-red-600 hover:text-white transition-all"
-          >
-            ADD
-          </button>
+          <p class="text-[10px] text-stone-600 mt-2 italic">
+            If set, new diaries will be encrypted. You must use the SAME password to decrypt them later.
+          </p>
         </div>
 
-        <div class="space-y-2 max-h-32 overflow-y-auto pr-2 custom-scrollbar">
-          {#each specialAttentionList as addr}
-            <div class="flex justify-between items-center text-[10px] bg-stone-900 p-2 border border-stone-800">
-              <span class="font-mono">{addr.slice(0, 10)}...{addr.slice(-8)}</span>
-              <button
-                onclick={() => removeAttention(addr)}
-                class="text-red-500 hover:text-red-400 font-bold"
-              >
-                REMOVE
-              </button>
-            </div>
-          {/each}
+        <div class="bg-stone-950 p-6 rounded border border-stone-800">
+          <h3 class="text-sm font-bold text-red-500 uppercase mb-4 tracking-widest">Special Attention</h3>
+          <div class="flex gap-2 mb-4">
+            <input
+              type="text"
+              bind:value={newAttentionAddress}
+              placeholder="Address (0x...)"
+              class="flex-1 bg-stone-900 border border-stone-800 p-2 text-xs outline-none focus:border-red-500 transition-colors"
+            />
+            <button
+              onclick={addAttention}
+              class="px-4 py-2 bg-stone-100 text-stone-900 text-xs font-bold hover:bg-red-600 hover:text-white transition-all"
+            >
+              ADD
+            </button>
+          </div>
+
+          <div class="space-y-2 max-h-32 overflow-y-auto pr-2 custom-scrollbar">
+            {#each specialAttentionList as addr}
+              <div class="flex justify-between items-center text-[10px] bg-stone-900 p-2 border border-stone-800">
+                <span class="font-mono">{addr.slice(0, 10)}...{addr.slice(-8)}</span>
+                <button
+                  onclick={() => removeAttention(addr)}
+                  class="text-red-500 hover:text-red-400 font-bold"
+                >
+                  REMOVE
+                </button>
+              </div>
+            {/each}
+          </div>
         </div>
-      </div>
-    </section>
+      </section>
+    {/if}
 
     <!-- Timeline -->
     <section class="space-y-8">
