@@ -233,4 +233,9 @@
       {/each}
     </section>
   </div>
+
+  <footer class="max-w-3xl mx-auto p-4 py-8 border-t border-stone-800 flex justify-between items-center text-xs text-stone-600">
+    <div>© 2025 Diary Chain</div>
+    <a href="https://github.com/picasso250/diary-chain" target="_blank" class="hover:text-stone-400 underline decoration-stone-800">GitHub</a>
+  </footer>
 </main>
