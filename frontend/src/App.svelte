@@ -1,6 +1,7 @@
 <script>
   import { onMount } from "svelte";
   import { ethers } from "ethers";
+  import CryptoJS from "crypto-js";
   import { CONTRACT_ADDRESS, CONTRACT_ABI, TARGET_CHAIN_ID } from "./lib/constants";
 
   let account = $state(null);
@@ -8,6 +9,11 @@
   let entries = $state([]);
   let loading = $state(false);
   let isConnecting = $state(false);
+
+  // 新功能状态
+  let specialAttentionList = $state([]);
+  let newAttentionAddress = $state("");
+  let encryptionPassword = $state("");
 
   // 检查并切换网络
   async function checkNetwork() {
@@ -70,7 +76,12 @@
       const signer = await provider.getSigner();
       const contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, signer);
 
-      const tx = await contract.writeEntry(diaryContent);
+      let contentToSend = diaryContent;
+      if (encryptionPassword) {
+        contentToSend = "AES:" + CryptoJS.AES.encrypt(diaryContent, encryptionPassword).toString();
+      }
+
+      const tx = await contract.writeEntry(contentToSend);
       console.log("Transaction sent:", tx.hash);
       
       // 等待交易确认
@@ -83,6 +94,42 @@
       alert("Failed to write to chain. See console for details.");
     } finally {
       loading = false;
+    }
+  }
+
+  // 特别关注逻辑
+  function addAttention() {
+    if (!newAttentionAddress.trim()) return;
+    if (!ethers.isAddress(newAttentionAddress)) {
+      alert("Invalid Ethereum address");
+      return;
+    }
+    const addr = newAttentionAddress.toLowerCase();
+    if (!specialAttentionList.includes(addr)) {
+      specialAttentionList = [...specialAttentionList, addr];
+      localStorage.setItem("specialAttention", JSON.stringify(specialAttentionList));
+      fetchEntries();
+    }
+    newAttentionAddress = "";
+  }
+
+  function removeAttention(addr) {
+    specialAttentionList = specialAttentionList.filter(a => a !== addr);
+    localStorage.setItem("specialAttention", JSON.stringify(specialAttentionList));
+    fetchEntries();
+  }
+
+  // 解密逻辑
+  function decryptContent(content, password) {
+    if (!content.startsWith("AES:")) return content;
+    if (!password) return "[Encrypted Content]";
+    try {
+      const bytes = CryptoJS.AES.decrypt(content.slice(4), password);
+      const decrypted = bytes.toString(CryptoJS.enc.Utf8);
+      if (!decrypted) return "[Decryption Failed]";
+      return decrypted;
+    } catch (e) {
+      return "[Decryption Error]";
     }
   }
 
@@ -118,14 +165,33 @@
         };
       });
 
+      // 隔离与过滤：仅显示自己或特别关注的人
+      const myAddress = account?.toLowerCase();
+      const attentionSet = new Set(specialAttentionList.map(a => a.toLowerCase()));
+
       // 按时间倒序排列 (最新的在最前)
-      entries = parsedLogs.reverse();
+      entries = parsedLogs
+        .filter(log => {
+          const logUser = log.user.toLowerCase();
+          return logUser === myAddress || attentionSet.has(logUser);
+        })
+        .reverse();
     } catch (error) {
       console.error("Fetch failed:", error);
     }
   }
 
   onMount(() => {
+    // 加载特别关注列表
+    const saved = localStorage.getItem("specialAttention");
+    if (saved) {
+      try {
+        specialAttentionList = JSON.parse(saved);
+      } catch (e) {
+        console.error("Failed to parse specialAttention", e);
+      }
+    }
+
     // 尝试自动读取（如果用户之前授权过，或者只读模式）
     if (window.ethereum) {
        // 监听账号切换
@@ -194,6 +260,54 @@
       </div>
     </section>
 
+    <!-- Settings: Encryption & Attention -->
+    <section class="mb-12 grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div class="bg-stone-950 p-6 rounded border border-stone-800">
+        <h3 class="text-sm font-bold text-red-500 uppercase mb-4 tracking-widest">Encryption</h3>
+        <input
+          type="password"
+          bind:value={encryptionPassword}
+          placeholder="Set Encryption Password"
+          class="w-full bg-stone-900 border border-stone-800 p-2 text-sm outline-none focus:border-red-500 transition-colors"
+        />
+        <p class="text-[10px] text-stone-600 mt-2 italic">
+          If set, new diaries will be encrypted. You must use the SAME password to decrypt them later.
+        </p>
+      </div>
+
+      <div class="bg-stone-950 p-6 rounded border border-stone-800">
+        <h3 class="text-sm font-bold text-red-500 uppercase mb-4 tracking-widest">Special Attention</h3>
+        <div class="flex gap-2 mb-4">
+          <input
+            type="text"
+            bind:value={newAttentionAddress}
+            placeholder="Address (0x...)"
+            class="flex-1 bg-stone-900 border border-stone-800 p-2 text-xs outline-none focus:border-red-500 transition-colors"
+          />
+          <button
+            onclick={addAttention}
+            class="px-4 py-2 bg-stone-100 text-stone-900 text-xs font-bold hover:bg-red-600 hover:text-white transition-all"
+          >
+            ADD
+          </button>
+        </div>
+
+        <div class="space-y-2 max-h-32 overflow-y-auto pr-2 custom-scrollbar">
+          {#each specialAttentionList as addr}
+            <div class="flex justify-between items-center text-[10px] bg-stone-900 p-2 border border-stone-800">
+              <span class="font-mono">{addr.slice(0, 10)}...{addr.slice(-8)}</span>
+              <button
+                onclick={() => removeAttention(addr)}
+                class="text-red-500 hover:text-red-400 font-bold"
+              >
+                REMOVE
+              </button>
+            </div>
+          {/each}
+        </div>
+      </div>
+    </section>
+
     <!-- Timeline -->
     <section class="space-y-8">
       <div class="flex items-center gap-4">
@@ -226,7 +340,7 @@
           
           <div class="prose prose-invert prose-stone max-w-none">
             <p class="whitespace-pre-wrap leading-relaxed text-stone-300">
-              {entry.content}
+              {decryptContent(entry.content, encryptionPassword)}
             </p>
           </div>
         </article>
