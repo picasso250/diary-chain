@@ -6,7 +6,7 @@
 
   let account = $state(null);
   let diaryContent = $state("");
-  let entries = $state([]);
+  let allEntries = $state([]);
   let loading = $state(false);
   let isConnecting = $state(false);
 
@@ -14,6 +14,17 @@
   let specialAttentionList = $state([]);
   let newAttentionAddress = $state("");
   let encryptionPassword = $state("");
+
+  // 响应式过滤
+  let filteredEntries = $derived.by(() => {
+    const myAddress = account?.toLowerCase();
+    const attentionSet = new Set(specialAttentionList.map(a => a.toLowerCase()));
+
+    return allEntries.filter(entry => {
+      const user = entry.user.toLowerCase();
+      return user === myAddress || attentionSet.has(user);
+    });
+  });
 
   // 检查并切换网络
   async function checkNetwork() {
@@ -165,23 +176,14 @@
         };
       });
 
-      // 隔离与过滤：仅显示自己或特别关注的人
-      const myAddress = account?.toLowerCase();
-      const attentionSet = new Set(specialAttentionList.map(a => a.toLowerCase()));
-
       // 按时间倒序排列 (最新的在最前)
-      entries = parsedLogs
-        .filter(log => {
-          const logUser = log.user.toLowerCase();
-          return logUser === myAddress || attentionSet.has(logUser);
-        })
-        .reverse();
+      allEntries = parsedLogs.reverse();
     } catch (error) {
       console.error("Fetch failed:", error);
     }
   }
 
-  onMount(() => {
+  onMount(async () => {
     // 加载特别关注列表
     const saved = localStorage.getItem("specialAttention");
     if (saved) {
@@ -194,6 +196,16 @@
 
     // 尝试自动读取（如果用户之前授权过，或者只读模式）
     if (window.ethereum) {
+       try {
+         const provider = new ethers.BrowserProvider(window.ethereum);
+         const accounts = await provider.listAccounts();
+         if (accounts.length > 0) {
+           account = await accounts[0].getAddress();
+         }
+       } catch (e) {
+         console.warn("Failed to get initial account", e);
+       }
+
        // 监听账号切换
        window.ethereum.on('accountsChanged', (accounts) => {
          if (accounts.length > 0) {
@@ -201,6 +213,7 @@
          } else {
            account = null;
          }
+         fetchEntries();
        });
        fetchEntries();
     }
@@ -315,13 +328,13 @@
         <div class="h-px bg-stone-800 flex-1"></div>
       </div>
 
-      {#if entries.length === 0}
+      {#if filteredEntries.length === 0}
         <div class="text-center py-12 text-stone-600 italic">
           The chain is silent. Be the first to speak.
         </div>
       {/if}
 
-      {#each entries as entry (entry.hash)}
+      {#each filteredEntries as entry (entry.hash)}
         <article class="pl-4 border-l-2 border-stone-800 hover:border-red-900 transition-colors duration-300 relative">
           <!-- Dot -->
           <div class="absolute -left-[9px] top-0 w-4 h-4 rounded-full bg-stone-900 border-2 border-stone-800"></div>
