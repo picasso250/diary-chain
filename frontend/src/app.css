@@ -1,13 +1,13 @@
 @import "tailwindcss";
 
 :root {
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
   line-height: 1.5;
   font-weight: 400;
 
-  color-scheme: dark;
-  color: rgba(255, 255, 255, 0.87);
-  background-color: #1c1917; /* stone-900 */
+  color-scheme: light dark;
+  color: #27272a; /* zinc-800 */
+  background-color: #fafafa; /* zinc-50 */
 
   font-synthesis: none;
   text-rendering: optimizeLegibility;
@@ -19,7 +19,7 @@ body {
   margin: 0;
   min-width: 320px;
   min-height: 100vh;
-  @apply bg-stone-900 text-stone-200;
+  @apply bg-zinc-50 text-zinc-800 transition-colors duration-300;
 }
 
 #app {
@@ -28,18 +28,18 @@ body {
 
 /* Custom Scrollbar for inner components */
 .custom-scrollbar::-webkit-scrollbar {
-  width: 4px;
+  width: 6px;
 }
 
 .custom-scrollbar::-webkit-scrollbar-track {
-  background: #1c1917; /* stone-900 */
+  background: transparent;
 }
 
 .custom-scrollbar::-webkit-scrollbar-thumb {
-  background: #44403c; /* stone-700 */
-  border-radius: 4px;
+  background: #d4d4d8; /* zinc-300 */
+  border-radius: 6px;
 }
 
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: #ef4444; /* red-500 */
+  background: #a1a1aa; /* zinc-400 */
 }

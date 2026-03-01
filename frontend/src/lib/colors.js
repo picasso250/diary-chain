@@ -6,8 +6,8 @@ export function stringToColor(str) {
   let color = '#';
   for (let i = 0; i < 3; i++) {
     const value = (hash >> (i * 8)) & 0xFF;
-    // Keep it relatively light/pastel so it's readable on dark mode
-    const adjusted = Math.max(120, value).toString(16);
+    // Keep it relatively balanced for a light/professional theme
+    const adjusted = Math.max(80, Math.min(200, value)).toString(16);
     color += ('00' + adjusted).slice(-2);
   }
   return color;
