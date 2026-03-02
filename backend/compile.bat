@@ -1,0 +1,1 @@
+npx solcjs --bin --abi --optimize --optimize-runs 200 -o build contracts/OnChainDiary.sol
