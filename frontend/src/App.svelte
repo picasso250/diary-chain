@@ -91,14 +91,8 @@
         contentToSend = "AES:" + CryptoJS.AES.encrypt(diaryContent, encryptionPassword).toString();
       }
 
-      const priorityFee = ethers.parseUnits("0.01", "gwei");
-      const block = await provider.getBlock("latest");
-      const baseFee = block.baseFeePerGas;
-      const maxFee = baseFee * 2n + priorityFee;
-
       const tx = await contract.writeEntry(contentToSend, {
-        maxPriorityFeePerGas: priorityFee,
-        maxFeePerGas: maxFee
+        maxPriorityFeePerGas: ethers.parseUnits("0.01", "gwei")
       });
       console.log("Transaction sent:", tx.hash);
       
