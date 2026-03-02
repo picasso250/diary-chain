@@ -1,0 +1,9 @@
+services:
+  - type: web
+    name: diary-chain-ethereum
+    env: static
+    buildCommand: cd frontend && npm ci && npm run build:ethereum
+    staticPublishPath: frontend/dist
+    envVars:
+      - key: NODE_VERSION
+        value: "20"

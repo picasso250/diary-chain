@@ -5,8 +5,12 @@
   "license": "GPL-3.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "build": "vite build",
+    "dev": "vite --mode arbitrum",
+    "dev:arbitrum": "vite --mode arbitrum",
+    "dev:ethereum": "vite --mode ethereum",
+    "build": "vite build --mode arbitrum",
+    "build:arbitrum": "vite build --mode arbitrum",
+    "build:ethereum": "vite build --mode ethereum",
     "preview": "vite preview"
   },
   "devDependencies": {

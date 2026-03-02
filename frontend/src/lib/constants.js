@@ -1,8 +1,7 @@
-// Arbitrum One Deployment
-export const CONTRACT_ADDRESS = "0x09e8c43372CB00eC109D029e321dC7FFf0bb1e28"; 
-
-// Arbitrum One Chain ID (Hex)
-export const TARGET_CHAIN_ID = "0xa4b1"; // 42161
+export const CONTRACT_ADDRESS = import.meta.env.VITE_CONTRACT_ADDRESS;
+export const TARGET_CHAIN_ID = import.meta.env.VITE_CHAIN_ID;
+export const BLOCK_EXPLORER = import.meta.env.VITE_BLOCK_EXPLORER;
+export const NETWORK_NAME = import.meta.env.VITE_NETWORK_NAME;
 
 export const CONTRACT_ABI = [
   {
