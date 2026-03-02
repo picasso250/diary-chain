@@ -91,9 +91,7 @@
         contentToSend = "AES:" + CryptoJS.AES.encrypt(diaryContent, encryptionPassword).toString();
       }
 
-      const tx = await contract.writeEntry(contentToSend, {
-        maxPriorityFeePerGas: ethers.parseUnits("0.01", "gwei")
-      });
+      const tx = await contract.writeEntry(contentToSend);
       console.log("Transaction sent:", tx.hash);
       
       await tx.wait();
