@@ -4,14 +4,7 @@
 
 GitHub: [picasso250/diary-chain](https://github.com/picasso250/diary-chain)
 
-Diary Chain is an on-chain diary application designed for the Arbitrum network. It leverages the security and immutability of the Ethereum ecosystem while utilizing Arbitrum's low gas fees for high-frequency interactions like writing diary entries.
-
-## Project Structure
-
-This repository is structured into two main directories:
-
-- `/backend`: Smart contracts for the Diary Chain application.
-- `/frontend`: The web application built to interact with the smart contracts.
+Diary Chain is an on-chain diary application. It leverages the security and immutability of the Ethereum ecosystem.
 
 ## Tech Stack
 
@@ -23,9 +16,7 @@ This repository is structured into two main directories:
 - **Deployment:** Netlify (configured via root `netlify.toml`)
 
 ### Backend
-- **Framework:** Hardhat
 - **Language:** Solidity
-- **Network:** Arbitrum (optimized for low gas fees using event logs for data storage)
 
 ## Getting Started
 
@@ -52,23 +43,3 @@ This repository is structured into two main directories:
    npm run build
    ```
 
-### Backend Setup
-
-1. Navigate to the backend directory:
-   ```bash
-   cd backend
-   ```
-2. Install dependencies:
-   ```bash
-   npm install
-   ```
-3. Run tests:
-   ```bash
-   npx hardhat test
-   ```
-
-## License
-
-This project embraces the decentralized, on-chain nature of Web3.
-
-Open-source under the **ISC License**. No rights reserved.
