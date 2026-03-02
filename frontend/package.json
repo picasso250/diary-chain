@@ -5,10 +5,12 @@
   "license": "GPL-3.0",
   "type": "module",
   "scripts": {
-    "dev": "vite --mode arbitrum",
+    "dev": "vite --mode sepolia",
+    "dev:sepolia": "vite --mode sepolia",
     "dev:arbitrum": "vite --mode arbitrum",
     "dev:ethereum": "vite --mode ethereum",
     "build": "vite build --mode arbitrum",
+    "build:sepolia": "vite build --mode sepolia",
     "build:arbitrum": "vite build --mode arbitrum",
     "build:ethereum": "vite build --mode ethereum",
     "preview": "vite preview"
