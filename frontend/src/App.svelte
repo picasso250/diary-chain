@@ -2,6 +2,9 @@
   import { onMount } from "svelte";
   import { fade, slide } from "svelte/transition";
   import { ethers } from "ethers";
+  import { createAppKit } from "@reown/appkit";
+  import { arbitrum, mainnet, sepolia } from "@reown/appkit/networks";
+  import { EthersAdapter } from "@reown/appkit-adapter-ethers";
   import CryptoJS from "crypto-js";
   import { CONTRACT_ADDRESS, CONTRACT_ABI, TARGET_CHAIN_ID, BLOCK_EXPLORER, NETWORK_NAME } from "./lib/constants";
   import { stringToColor } from "./lib/colors";
@@ -11,6 +14,8 @@
   let allEntries = $state([]);
   let loading = $state(false);
   let isConnecting = $state(false);
+  let walletProvider = $state(null);
+  let appKit = null;
 
   // 新功能状态
   let specialAttentionList = $state([]);
@@ -29,13 +34,47 @@
     });
   });
 
+  const REOWN_PROJECT_ID = import.meta.env.VITE_WALLETCONNECT_PROJECT_ID;
+  const appKitNetworks = [mainnet, arbitrum, sepolia];
+  const appKitNetwork = appKitNetworks.find(
+    (network) => Number(network.id) === Number.parseInt(TARGET_CHAIN_ID, 16)
+  ) || mainnet;
+
+  function initAppKit() {
+    if (appKit || !REOWN_PROJECT_ID) return appKit;
+    appKit = createAppKit({
+      adapters: [new EthersAdapter()],
+      networks: [appKitNetwork],
+      defaultNetwork: appKitNetwork,
+      projectId: REOWN_PROJECT_ID,
+      metadata: {
+        name: "Diary Chain",
+        description: "On-chain diary",
+        url: "https://diary.io99.xyz",
+        icons: ["https://diary.io99.xyz/vite.svg"],
+      },
+      features: {
+        analytics: false,
+        email: false,
+        socials: false,
+        swaps: false,
+        onramp: false,
+        connectMethodsOrder: ["wallet"],
+      },
+    });
+    appKit.subscribeAccount(() => restoreWalletConnectSession());
+    appKit.subscribeNetwork(() => restoreWalletConnectSession());
+    appKit.subscribeWalletInfo(() => restoreWalletConnectSession());
+    return appKit;
+  }
+
   // 检查并切换网络
-  async function checkNetwork() {
-    if (!window.ethereum) return;
-    const chainId = await window.ethereum.request({ method: 'eth_chainId' });
+  async function checkNetwork(provider = walletProvider || window.ethereum) {
+    if (!provider?.request) return false;
+    const chainId = await provider.request({ method: 'eth_chainId' });
     if (chainId !== TARGET_CHAIN_ID) {
       try {
-        await window.ethereum.request({
+        await provider.request({
           method: 'wallet_switchEthereumChain',
           params: [{ chainId: TARGET_CHAIN_ID }],
         });
@@ -49,24 +88,52 @@
     return true;
   }
 
-  // 连接钱包
-  async function connectWallet() {
-    if (!window.ethereum) {
-      alert("Please install a Web3 wallet (e.g., MetaMask).");
+  async function setConnectedProvider(provider) {
+    walletProvider = provider;
+    const ethersProvider = new ethers.BrowserProvider(provider);
+    const signer = await ethersProvider.getSigner();
+    account = await signer.getAddress();
+    await fetchEntries();
+  }
+
+  async function restoreWalletConnectSession() {
+    const modal = initAppKit();
+    if (!modal) return;
+    await modal.ready();
+    const wcProvider = modal.getWalletProvider();
+    const wcAccount = modal.getAccount("eip155");
+    if (!wcAccount?.isConnected || !wcProvider?.request) return;
+    const isCorrectNetwork = await checkNetwork(wcProvider);
+    if (!isCorrectNetwork) return;
+    await setConnectedProvider(wcProvider);
+  }
+
+  async function connectWalletConnect() {
+    if (!REOWN_PROJECT_ID) {
+      alert("WalletConnect is not configured.");
       return;
     }
+    const modal = initAppKit();
+    await modal.ready();
+    await modal.open({ view: "Connect", namespace: "eip155" });
+    await restoreWalletConnectSession();
+  }
+
+  // 连接钱包
+  async function connectWallet() {
     isConnecting = true;
     try {
-      const isCorrectNetwork = await checkNetwork();
-      if (!isCorrectNetwork) return;
-
-      const provider = new ethers.BrowserProvider(window.ethereum);
-      const signer = await provider.getSigner();
-      account = await signer.getAddress();
-      
-      await fetchEntries();
+      if (window.ethereum) {
+        const isCorrectNetwork = await checkNetwork(window.ethereum);
+        if (!isCorrectNetwork) return;
+        await window.ethereum.request({ method: "eth_requestAccounts" });
+        await setConnectedProvider(window.ethereum);
+        return;
+      }
+      await connectWalletConnect();
     } catch (error) {
       console.error("Connection failed:", error);
+      alert(error.message || "Connection failed.");
     } finally {
       isConnecting = false;
     }
@@ -82,7 +149,9 @@
 
     loading = true;
     try {
-      const provider = new ethers.BrowserProvider(window.ethereum);
+      const activeProvider = walletProvider || window.ethereum;
+      if (!activeProvider) throw new Error("Wallet not connected");
+      const provider = new ethers.BrowserProvider(activeProvider);
       const signer = await provider.getSigner();
       const contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, signer);
 
@@ -145,12 +214,9 @@
   // 读取日志
   async function fetchEntries() {
     try {
-      let provider;
-      if (window.ethereum) {
-        provider = new ethers.BrowserProvider(window.ethereum);
-      } else {
-        return; 
-      }
+      const activeProvider = walletProvider || window.ethereum;
+      if (!activeProvider) return;
+      const provider = new ethers.BrowserProvider(activeProvider);
 
       const contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, provider);
       const filter = contract.filters.EntryCreated();
@@ -184,11 +250,15 @@
       }
     }
 
+    initAppKit();
+    await restoreWalletConnectSession();
+
     if (window.ethereum) {
        try {
          const provider = new ethers.BrowserProvider(window.ethereum);
          const accounts = await provider.listAccounts();
          if (accounts.length > 0) {
+           walletProvider = window.ethereum;
            account = await accounts[0].getAddress();
          }
        } catch (e) {
@@ -197,9 +267,11 @@
 
        window.ethereum.on('accountsChanged', (accounts) => {
          if (accounts.length > 0) {
+           walletProvider = window.ethereum;
            account = accounts[0];
          } else {
            account = null;
+           walletProvider = null;
          }
          fetchEntries();
        });
