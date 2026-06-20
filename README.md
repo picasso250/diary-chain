@@ -32,6 +32,14 @@ Diary Chain 是一个不可篡改的个人链上日记。写在链上的每一�
 - **Cloudflare Workers** — Ethereum 生产部署（`wrangler.toml`）
 - **Netlify** — Arbitrum One 生产部署（`netlify.toml`）
 
+## 经济模型
+
+Diary Chain 采用极简的“打赏（乞讨）模式”：
+
+- **Begger (Owner)**：合约部署者即为收款人。虽然在合约中称为 `owner`，但其唯一特权是提取合约中收到的打赏。
+- **Voluntary Tipping**：写入日记是免费的（除了必要的 Gas 费）。用户在 `writeEntry` 时可以自愿附带任意金额的 ETH 作为对平台的打赏。
+- **Zero Enforcement**：合约不强制要求付费。这种模式旨在通过“用完即走、随心打赏”的经济行为，支持去中心化基础设施的运行。
+
 ## Getting Started
 
 ### 前端

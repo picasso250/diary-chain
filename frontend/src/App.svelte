@@ -222,17 +222,18 @@
       const filter = contract.filters.EntryCreated();
       const logs = await contract.queryFilter(filter);
 
-      const parsedLogs = logs.map(log => {
+      const parsedLogs = await Promise.all(logs.map(async (log) => {
+        const block = await log.getBlock();
         return {
           user: log.args[0],
-          timestamp: new Date(Number(log.args[1]) * 1000).toLocaleString(undefined, {
+          timestamp: new Date(Number(block.timestamp) * 1000).toLocaleString(undefined, {
             year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
           }),
-          content: log.args[2],
+          content: log.args[1],
           blockNumber: log.blockNumber,
           hash: log.transactionHash
         };
-      });
+      }));
 
       allEntries = parsedLogs.reverse();
     } catch (error) {
