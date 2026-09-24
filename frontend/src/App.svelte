@@ -15,7 +15,18 @@
   let loading = $state(false);
   let isConnecting = $state(false);
   let walletProvider = $state(null);
+  let entriesLoading = $state(true);
   let appKit = null;
+  let fetchEntriesPromise = null;
+
+  // ---- 性能打点（临时测量用，后续可整体移除）----
+  let perfT0 = performance.now();
+  let perfLast = perfT0;
+  function perf(label) {
+    const now = performance.now();
+    console.log(`[perf] ${label}  +${(now - perfLast).toFixed(0)}ms  (t=${(now - perfT0).toFixed(0)}ms)`);
+    perfLast = now;
+  }
 
   // 新功能状态
   let specialAttentionList = $state([]);
@@ -42,6 +53,7 @@
 
   function initAppKit() {
     if (appKit || !REOWN_PROJECT_ID) return appKit;
+    perf("initAppKit: createAppKit start");
     appKit = createAppKit({
       adapters: [new EthersAdapter()],
       networks: [appKitNetwork],
@@ -65,6 +77,7 @@
     appKit.subscribeAccount(() => restoreWalletConnectSession());
     appKit.subscribeNetwork(() => restoreWalletConnectSession());
     appKit.subscribeWalletInfo(() => restoreWalletConnectSession());
+    perf("initAppKit: createAppKit done (订阅已注册)");
     return appKit;
   }
 
@@ -72,6 +85,7 @@
   async function checkNetwork(provider = walletProvider || window.ethereum) {
     if (!provider?.request) return false;
     const chainId = await provider.request({ method: 'eth_chainId' });
+    perf("checkNetwork: chainId=" + chainId);
     if (chainId !== TARGET_CHAIN_ID) {
       try {
         await provider.request({
@@ -89,20 +103,27 @@
   }
 
   async function setConnectedProvider(provider) {
+    perf("setConnectedProvider start");
     walletProvider = provider;
     const ethersProvider = new ethers.BrowserProvider(provider);
     const signer = await ethersProvider.getSigner();
+    perf("setConnectedProvider: getSigner done");
     account = await signer.getAddress();
+    perf("setConnectedProvider: getAddress done -> " + account);
     await fetchEntries();
+    perf("setConnectedProvider: fetchEntries done");
   }
 
   async function restoreWalletConnectSession() {
     const modal = initAppKit();
     if (!modal) return;
+    perf("restoreWC: modal.ready start");
     await modal.ready();
+    perf("restoreWC: modal.ready done");
     const wcProvider = modal.getWalletProvider();
     const wcAccount = modal.getAccount("eip155");
     if (!wcAccount?.isConnected || !wcProvider?.request) return;
+    perf("restoreWC: 发现已连接的 WC 会话");
     const isCorrectNetwork = await checkNetwork(wcProvider);
     if (!isCorrectNetwork) return;
     await setConnectedProvider(wcProvider);
@@ -121,13 +142,19 @@
 
   // 连接钱包
   async function connectWallet() {
+    perf("connectWallet: 用户点击");
     isConnecting = true;
     try {
       if (window.ethereum) {
+        perf("connectWallet: checkNetwork start");
         const isCorrectNetwork = await checkNetwork(window.ethereum);
+        perf("connectWallet: checkNetwork done");
         if (!isCorrectNetwork) return;
+        perf("connectWallet: eth_requestAccounts（Rabby 弹窗）start");
         await window.ethereum.request({ method: "eth_requestAccounts" });
+        perf("connectWallet: eth_requestAccounts 已批准");
         await setConnectedProvider(window.ethereum);
+        perf("connectWallet: 全部完成");
         return;
       }
       await connectWalletConnect();
@@ -161,9 +188,10 @@
       }
 
       const tx = await contract.writeEntry(contentToSend);
-      console.log("Transaction sent:", tx.hash);
+      perf("writeDiary: tx 已发送 " + tx.hash.slice(0, 10));
 
       const receipt = await tx.wait();
+      perf("writeDiary: receipt 到手 block=" + receipt.blockNumber);
 
       diaryContent = "";
       if (SUBGRAPH_URL) {
@@ -182,6 +210,7 @@
         });
         optimisticEntry.syncing = true;
         allEntries = [optimisticEntry, ...allEntries];
+        perf("writeDiary: 乐观条目已显示");
 
         // subgraph 无推送回调，轮询确认同步（3 次 × 5 秒）；确认后换用 subgraph 数据并去掉"同步中"
         for (let i = 0; i < 3; i++) {
@@ -190,12 +219,14 @@
             const entries = await fetchEntriesFromSubgraph();
             if (entries.some(e => e.hash === receipt.hash)) {
               allEntries = entries;
+              perf("writeDiary: subgraph 确认同步 (poll #" + (i + 1) + ")");
               return;
             }
           } catch (e) { /* 下一轮重试 */ }
         }
         // 未确认：保留乐观条目（链上已确认），去掉"同步中"标识，下次刷新自然同步
         allEntries = allEntries.map(e => e.hash === receipt.hash ? { ...e, syncing: false } : e);
+        perf("writeDiary: 3 次轮询未确认，保留乐观条目");
       } else {
         await fetchEntries();
       }
@@ -244,24 +275,40 @@
   }
 
   // 读取日志：优先走 The Graph Subgraph（GraphQL），未配置/未同步完/出错时回退到分批 eth_getLogs
+  // 并发调用会被合并为同一次请求（连接时 accountsChanged 与 setConnectedProvider 会同时触发）
   async function fetchEntries() {
-    if (SUBGRAPH_URL) {
-      try {
-        const fromSubgraph = await fetchEntriesFromSubgraph();
-        if (fromSubgraph && fromSubgraph.length > 0) {
-          allEntries = fromSubgraph;
-          return;
-        }
-        console.log("Subgraph empty (still syncing?) - falling back to RPC");
-      } catch (error) {
-        console.error("Subgraph query failed, falling back to RPC:", error);
-      }
-    }
+    if (fetchEntriesPromise) return fetchEntriesPromise;
+    fetchEntriesPromise = doFetchEntries().finally(() => { fetchEntriesPromise = null; });
+    return fetchEntriesPromise;
+  }
+
+  async function doFetchEntries() {
+    perf("fetchEntries start");
+    entriesLoading = true;
     try {
-      const fresh = await fetchEntriesFromRpc();
-      if (fresh) allEntries = fresh;
-    } catch (error) {
-      console.error("Fetch failed:", error);
+      if (SUBGRAPH_URL) {
+        try {
+          const fromSubgraph = await fetchEntriesFromSubgraph();
+          if (fromSubgraph && fromSubgraph.length > 0) {
+            allEntries = fromSubgraph;
+            perf("fetchEntries done（subgraph，n=" + fromSubgraph.length + "）");
+            return;
+          }
+          perf("fetchEntries: subgraph 为空 -> RPC 回退");
+        } catch (error) {
+          perf("fetchEntries: subgraph 出错 -> RPC 回退");
+          console.error("Subgraph query failed, falling back to RPC:", error);
+        }
+      }
+      try {
+        const fresh = await fetchEntriesFromRpc();
+        if (fresh) allEntries = fresh;
+        perf("fetchEntries done（RPC，n=" + (fresh ? fresh.length : 0) + "）");
+      } catch (error) {
+        console.error("Fetch failed:", error);
+      }
+    } finally {
+      entriesLoading = false;
     }
   }
 
@@ -293,12 +340,14 @@
         }
       `
     };
+    perf("subgraph: POST start");
     const response = await fetch(SUBGRAPH_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(graphqlQuery)
     });
     const data = await response.json();
+    perf("subgraph: 响应 " + response.status + " 已解析");
     if (!response.ok || data.errors) {
       throw new Error(data.errors ? data.errors.map(e => e.message).join('; ') : "Subgraph request failed");
     }
@@ -322,10 +371,12 @@
     const cacheKey = "diaryLastScannedBlock_" + TARGET_CHAIN_ID;
     let fromBlock = Math.max(Number(localStorage.getItem(cacheKey) || START_BLOCK), START_BLOCK);
     const latestBlock = await provider.getBlockNumber();
+    perf("RPC 回退: latestBlock=" + latestBlock);
     if (latestBlock <= fromBlock) return null; // 没有新区块，保留现有列表
 
     const { logs, lastScanned } = await getLogsInChunks(provider, contract, filter, fromBlock, latestBlock);
     localStorage.setItem(cacheKey, String(lastScanned));
+    perf("RPC 回退 done: scanned 到 " + lastScanned + " n=" + logs.length);
 
     return logs.map(log => parseEntry({
       user: log.args[0],
@@ -353,6 +404,7 @@
           console.error("getLogs failed at block", cursor, e);
           break;
         }
+        perf("RPC chunk 被拒 @" + cursor + " window=" + chunk + " -> 减半");
         chunk = Math.floor(chunk / 2); // 窗口过大，减半重试
       }
     }
@@ -360,6 +412,7 @@
   }
 
   onMount(async () => {
+    perf("onMount start");
     const saved = localStorage.getItem("specialAttention");
     if (saved) {
       try {
@@ -369,16 +422,25 @@
       }
     }
 
-    initAppKit();
-    await restoreWalletConnectSession();
+    // 有注入钱包（Rabby 等）时完全不需要 AppKit/WalletConnect：跳过其慢初始化（modal.ready 曾耗时 ~4s）
+    if (!window.ethereum) {
+      initAppKit();
+      perf("onMount: initAppKit 已调用（无注入钱包）");
+      await restoreWalletConnectSession();
+      perf("onMount: restoreWC await 完成");
+    } else {
+      perf("onMount: 检测到注入钱包，跳过 AppKit/WC 初始化");
+    }
 
     if (window.ethereum) {
        try {
          const provider = new ethers.BrowserProvider(window.ethereum);
          const accounts = await provider.listAccounts();
+         perf("onMount: listAccounts done（n=" + accounts.length + "）");
          if (accounts.length > 0) {
            walletProvider = window.ethereum;
            account = await accounts[0].getAddress();
+           perf("onMount: 恢复账户 -> " + account);
          }
        } catch (e) {
          console.warn("Failed to get initial account", e);
@@ -395,7 +457,9 @@
          fetchEntries();
        });
        fetchEntries();
+       perf("onMount: fetchEntries 已调用");
     }
+    perf("onMount done");
   });
 </script>
 
@@ -536,13 +600,23 @@
       </div>
 
       {#if filteredEntries.length === 0}
-        <div class="bg-white border border-zinc-100 rounded-2xl p-12 text-center shadow-sm">
-          <div class="mx-auto w-12 h-12 bg-zinc-50 rounded-full flex items-center justify-center mb-4">
-            <svg class="w-6 h-6 text-zinc-300" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 002-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/></svg>
+        {#if entriesLoading}
+          <div class="bg-white border border-zinc-100 rounded-2xl p-12 text-center shadow-sm">
+            <div class="mx-auto w-12 h-12 bg-zinc-50 rounded-full flex items-center justify-center mb-4">
+              <svg class="w-6 h-6 text-zinc-300 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+            </div>
+            <h3 class="text-zinc-900 font-medium mb-1">Loading entries…</h3>
+            <p class="text-zinc-500 text-sm">Fetching from The Graph subgraph…</p>
           </div>
-          <h3 class="text-zinc-900 font-medium mb-1">No entries found</h3>
-          <p class="text-zinc-500 text-sm">Be the first to leave a permanent record.</p>
-        </div>
+        {:else}
+          <div class="bg-white border border-zinc-100 rounded-2xl p-12 text-center shadow-sm">
+            <div class="mx-auto w-12 h-12 bg-zinc-50 rounded-full flex items-center justify-center mb-4">
+              <svg class="w-6 h-6 text-zinc-300" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 002-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/></svg>
+            </div>
+            <h3 class="text-zinc-900 font-medium mb-1">No entries found</h3>
+            <p class="text-zinc-500 text-sm">Be the first to leave a permanent record.</p>
+          </div>
+        {/if}
       {/if}
 
       <div class="space-y-6">
