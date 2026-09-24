@@ -1,0 +1,20 @@
+# 一条链上日记记录，不可变
+type Entry @entity(immutable: true) {
+  # 唯一ID：交易哈希 + 日志索引（同一笔交易可能有多条日志）
+  id: ID!
+
+  # 作者地址
+  user: Bytes! @index
+
+  # 写入时间戳（合约区块时间）
+  timestamp: BigInt!
+
+  # 日记内容
+  content: String!
+
+  # 所在区块号
+  blockNumber: BigInt!
+
+  # 交易哈希（用于前端跳转区块浏览器）
+  txHash: String!
+}

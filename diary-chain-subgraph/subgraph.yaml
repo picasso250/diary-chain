@@ -1,0 +1,26 @@
+specVersion: 1.3.0
+indexerHints:
+  prune: auto
+schema:
+  file: ./schema.graphql
+dataSources:
+  - kind: ethereum
+    name: OnChainDiary
+    network: mainnet
+    source:
+      address: "0xc316f67824A3508eD4a568391ABc47a4318E5593"
+      abi: OnChainDiary
+      startBlock: 24567600
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.9
+      language: wasm/assemblyscript
+      entities:
+        - Entry
+      abis:
+        - name: OnChainDiary
+          file: ./abis/OnChainDiary.json
+      eventHandlers:
+        - event: EntryCreated(indexed address,uint256,string)
+          handler: handleEntryCreated
+      file: ./src/on-chain-diary.ts

@@ -6,7 +6,7 @@
   import { arbitrum, mainnet, sepolia } from "@reown/appkit/networks";
   import { EthersAdapter } from "@reown/appkit-adapter-ethers";
   import CryptoJS from "crypto-js";
-  import { CONTRACT_ADDRESS, CONTRACT_ABI, TARGET_CHAIN_ID, BLOCK_EXPLORER, NETWORK_NAME } from "./lib/constants";
+  import { CONTRACT_ADDRESS, CONTRACT_ABI, TARGET_CHAIN_ID, BLOCK_EXPLORER, NETWORK_NAME, SUBGRAPH_URL, START_BLOCK } from "./lib/constants";
   import { stringToColor } from "./lib/colors";
 
   let account = $state(null);
@@ -162,11 +162,43 @@
 
       const tx = await contract.writeEntry(contentToSend);
       console.log("Transaction sent:", tx.hash);
-      
-      await tx.wait();
-      
+
+      const receipt = await tx.wait();
+
       diaryContent = "";
-      await fetchEntries();
+      if (SUBGRAPH_URL) {
+        // 乐观更新：写入成功即在前端立即显示新日记，并标记"同步中"
+        let blockTimestamp = Math.floor(Date.now() / 1000);
+        try {
+          const block = await provider.getBlock(receipt.blockNumber);
+          if (block) blockTimestamp = Number(block.timestamp);
+        } catch (e) { /* 用当前时间兜底 */ }
+        const optimisticEntry = parseEntry({
+          user: account,
+          timestamp: String(blockTimestamp),
+          content: contentToSend,
+          blockNumber: Number(receipt.blockNumber),
+          hash: receipt.hash
+        });
+        optimisticEntry.syncing = true;
+        allEntries = [optimisticEntry, ...allEntries];
+
+        // subgraph 无推送回调，轮询确认同步（3 次 × 5 秒）；确认后换用 subgraph 数据并去掉"同步中"
+        for (let i = 0; i < 3; i++) {
+          await new Promise(resolve => setTimeout(resolve, 5000));
+          try {
+            const entries = await fetchEntriesFromSubgraph();
+            if (entries.some(e => e.hash === receipt.hash)) {
+              allEntries = entries;
+              return;
+            }
+          } catch (e) { /* 下一轮重试 */ }
+        }
+        // 未确认：保留乐观条目（链上已确认），去掉"同步中"标识，下次刷新自然同步
+        allEntries = allEntries.map(e => e.hash === receipt.hash ? { ...e, syncing: false } : e);
+      } else {
+        await fetchEntries();
+      }
     } catch (error) {
       console.error("Write failed:", error);
       alert("Failed to write to chain. See console for details.");
@@ -211,33 +243,120 @@
     }
   }
 
-  // 读取日志
+  // 读取日志：优先走 The Graph Subgraph（GraphQL），未配置/未同步完/出错时回退到分批 eth_getLogs
   async function fetchEntries() {
+    if (SUBGRAPH_URL) {
+      try {
+        const fromSubgraph = await fetchEntriesFromSubgraph();
+        if (fromSubgraph && fromSubgraph.length > 0) {
+          allEntries = fromSubgraph;
+          return;
+        }
+        console.log("Subgraph empty (still syncing?) - falling back to RPC");
+      } catch (error) {
+        console.error("Subgraph query failed, falling back to RPC:", error);
+      }
+    }
     try {
-      const activeProvider = walletProvider || window.ethereum;
-      if (!activeProvider) return;
-      const provider = new ethers.BrowserProvider(activeProvider);
-
-      const contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, provider);
-      const filter = contract.filters.EntryCreated();
-      const logs = await contract.queryFilter(filter);
-
-      const parsedLogs = logs.map(log => {
-        return {
-          user: log.args[0],
-          timestamp: new Date(Number(log.args[1]) * 1000).toLocaleString(undefined, {
-            year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
-          }),
-          content: log.args[2],
-          blockNumber: log.blockNumber,
-          hash: log.transactionHash
-        };
-      });
-
-      allEntries = parsedLogs.reverse();
+      const fresh = await fetchEntriesFromRpc();
+      if (fresh) allEntries = fresh;
     } catch (error) {
       console.error("Fetch failed:", error);
     }
+  }
+
+  function parseEntry(entry) {
+    return {
+      user: entry.user,
+      timestamp: new Date(Number(entry.timestamp) * 1000).toLocaleString(undefined, {
+        year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
+      }),
+      content: entry.content,
+      blockNumber: entry.blockNumber,
+      hash: entry.hash
+    };
+  }
+
+  // The Graph Subgraph 查询入口（无需钱包、无 eth_getLogs 范围限制）
+  async function fetchEntriesFromSubgraph() {
+    const graphqlQuery = {
+      query: `
+        query {
+          entries(orderBy: timestamp, orderDirection: desc, first: 1000) {
+            id
+            user
+            timestamp
+            content
+            blockNumber
+            txHash
+          }
+        }
+      `
+    };
+    const response = await fetch(SUBGRAPH_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(graphqlQuery)
+    });
+    const data = await response.json();
+    if (!response.ok || data.errors) {
+      throw new Error(data.errors ? data.errors.map(e => e.message).join('; ') : "Subgraph request failed");
+    }
+    return (data.data?.entries || []).map(e => parseEntry({
+      user: e.user,
+      timestamp: e.timestamp,
+      content: e.content,
+      blockNumber: Number(e.blockNumber),
+      hash: e.txHash
+    }));
+  }
+
+  // 回退方案：按区块窗口分批拉取 eth_getLogs（窗口过大时自动减半，兼容 Rabby 等任意 RPC）
+  async function fetchEntriesFromRpc() {
+    const activeProvider = walletProvider || window.ethereum;
+    if (!activeProvider) return null;
+    const provider = new ethers.BrowserProvider(activeProvider);
+    const contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, provider);
+    const filter = contract.filters.EntryCreated();
+
+    const cacheKey = "diaryLastScannedBlock_" + TARGET_CHAIN_ID;
+    let fromBlock = Math.max(Number(localStorage.getItem(cacheKey) || START_BLOCK), START_BLOCK);
+    const latestBlock = await provider.getBlockNumber();
+    if (latestBlock <= fromBlock) return null; // 没有新区块，保留现有列表
+
+    const { logs, lastScanned } = await getLogsInChunks(provider, contract, filter, fromBlock, latestBlock);
+    localStorage.setItem(cacheKey, String(lastScanned));
+
+    return logs.map(log => parseEntry({
+      user: log.args[0],
+      timestamp: log.args[1],
+      content: log.args[2],
+      blockNumber: log.blockNumber,
+      hash: log.transactionHash
+    })).reverse();
+  }
+
+  // 自适应分块拉取日志：起始窗口 10 万块，被 RPC 拒绝时逐次减半直至 500 块
+  async function getLogsInChunks(provider, contract, filter, fromBlock, toBlock) {
+    let cursor = fromBlock;
+    let chunk = 100000;
+    const logs = [];
+    while (cursor <= toBlock) {
+      const to = Math.min(cursor + chunk - 1, toBlock);
+      try {
+        const batch = await contract.queryFilter(filter, cursor, to);
+        logs.push(...batch);
+        cursor = to + 1;
+        chunk = Math.min(100000, Math.floor(chunk * 1.5)); // 成功后温和恢复窗口
+      } catch (e) {
+        if (chunk <= 500) {
+          console.error("getLogs failed at block", cursor, e);
+          break;
+        }
+        chunk = Math.floor(chunk / 2); // 窗口过大，减半重试
+      }
+    }
+    return { logs, lastScanned: cursor - 1 };
   }
 
   onMount(async () => {
@@ -439,7 +558,15 @@
                   <div class="font-mono text-xs font-medium text-zinc-700">
                     {entry.user.slice(0, 6)}...{entry.user.slice(-4)}
                   </div>
-                  <div class="text-xs text-zinc-500 mt-0.5">{entry.timestamp}</div>
+                  <div class="text-xs text-zinc-500 mt-0.5">
+                    {entry.timestamp}
+                    {#if entry.syncing}
+                      <span class="ml-2 inline-flex items-center gap-1 text-[10px] font-medium text-amber-600 bg-amber-50 border border-amber-200 rounded-full px-2 py-0.5 align-middle">
+                        <svg class="w-2.5 h-2.5 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                        Syncing…
+                      </span>
+                    {/if}
+                  </div>
                 </div>
               </div>
 

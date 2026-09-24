@@ -1,0 +1,8 @@
+{
+  "mainnet": {
+    "OnChainDiary": {
+      "address": "0xc316f67824A3508eD4a568391ABc47a4318E5593",
+      "startBlock": 24567600
+    }
+  }
+}
