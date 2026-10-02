@@ -41,6 +41,14 @@ Diary Chain 是一个不可篡改的个人链上日记。写在链上的每一�
 - 各链起始扫描区块见 `frontend/.env.{chain}` 中的 `VITE_START_BLOCK`。
 - 配置好 `VITE_SUBGRAPH_URL` 后，前端查询完全走 GraphQL，不再依赖钱包 RPC 拉日志。
 
+## 经济模型
+
+Diary Chain 采用极简的“打赏（乞讨）模式”：
+
+- **Begger (Owner)**：合约部署者即为收款人。虽然在合约中称为 `owner`，但其唯一特权是提取合约中收到的打赏。
+- **Voluntary Tipping**：写入日记是免费的（除了必要的 Gas 费）。用户在 `writeEntry` 时可以自愿附带任意金额的 ETH 作为对平台的打赏。
+- **Zero Enforcement**：合约不强制要求付费。这种模式旨在通过“用完即走、随心打赏”的经济行为，支持去中心化基础设施的运行。
+
 ## Getting Started
 
 ### 前端
@@ -153,7 +161,7 @@ npm run build:ethereum
 
 ## 已知事项（暂缓处理）
 
-1. **线上合约与仓库源码不一致**：线上主网合约（`0xc316…E5593`）的 `writeEntry` 不要求 `msg.value > 0`（8 笔历史交易均为 0 值成功），但仓库 `backend/contracts/OnChainDiary.sol` 仍保留了 `require(msg.value > 0)`。这是已知差异（曾计划移除费用要求），重新部署合约前需统一源码。
+1. **新合约部署要求**：源码已移除强制付费，支持自愿打赏；`EntryCreated` 已改为 `(address,string)`，时间戳从区块获取。现有已部署合约和索引仍使用旧事件格式。上线此版本前须部署新合约、更新前端与 Subgraph 的合约地址及起始区块，并重新部署 Subgraph。
 2. **Arbitrum/Sepolia 构建**：这两条链暂未配置 subgraph 与 `VITE_START_BLOCK`，前端走 RPC 回退时会从区块 0 扫描（不现实）。旧版本同样存在该问题，非本次回归；待主网稳定后再处理。
 
 > subgraph 起始区块 `24567600`（`subgraph.yaml` / `networks.json`）：合约部署于区块 `24567728`（`0x176dfb0`），取前 128 块余量；首个 `EntryCreated` 事件在区块 `24567860`。

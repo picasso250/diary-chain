@@ -21,6 +21,6 @@ dataSources:
         - name: OnChainDiary
           file: ./abis/OnChainDiary.json
       eventHandlers:
-        - event: EntryCreated(indexed address,uint256,string)
+        - event: EntryCreated(indexed address,string)
           handler: handleEntryCreated
       file: ./src/on-chain-diary.ts

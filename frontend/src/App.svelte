@@ -378,13 +378,13 @@
     localStorage.setItem(cacheKey, String(lastScanned));
     perf("RPC 回退 done: scanned 到 " + lastScanned + " n=" + logs.length);
 
-    return logs.map(log => parseEntry({
+    return (await Promise.all(logs.map(async log => parseEntry({
       user: log.args[0],
-      timestamp: log.args[1],
-      content: log.args[2],
+      timestamp: (await log.getBlock()).timestamp,
+      content: log.args[1],
       blockNumber: log.blockNumber,
       hash: log.transactionHash
-    })).reverse();
+    })))).reverse();
   }
 
   // 自适应分块拉取日志：起始窗口 10 万块，被 RPC 拒绝时逐次减半直至 500 块

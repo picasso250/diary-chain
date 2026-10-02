@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.30;
+pragma solidity ^0.8.0;
 
 /**
  * @title OnChainDiary
@@ -8,12 +8,13 @@ pragma solidity 0.8.30;
  */
 contract OnChainDiary {
     // 记录合约的拥有者（部署者），用于后续提现
+    // 虽名 owner，实则 begger
     address public owner;
 
     // 每一条记录都是一个永久的事件日志
+    // 删除了 timestamp，因为区块本身自带时间戳
     event EntryCreated(
         address indexed user, 
-        uint256 timestamp, 
         string content
     );
 
@@ -25,13 +26,11 @@ contract OnChainDiary {
     /**
      * @dev 写入一条不可篡改的公开内容
      * @param _content 明文内容
-     * 注意：加上了 payable，并要求必须附带大于 0 的金额
+     * 保持 payable 以支持打赏，且比 non-payable 更省 Gas（少了一次 msg.value == 0 的检查）
      */
     function writeEntry(string memory _content) public payable {
-        // 核心修改：极其省 Gas 的检查方式。金额随意，但不能为 0
-        require(msg.value > 0, "Must pay something to write");
-
-        emit EntryCreated(msg.sender, block.timestamp, _content);
+        // 删除了 msg.value > 0 的强制要求，变为自愿打赏
+        emit EntryCreated(msg.sender, _content);
     }
 
     /**

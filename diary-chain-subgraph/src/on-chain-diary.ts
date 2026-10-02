@@ -17,7 +17,7 @@ export function handleEntryCreated(event: EntryCreatedEvent): void {
   )
 
   entry.user = event.params.user
-  entry.timestamp = event.params.timestamp
+  entry.timestamp = event.block.timestamp
   entry.content = event.params.content
   entry.blockNumber = event.block.number
   entry.txHash = event.transaction.hash.toHexString()
