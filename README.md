@@ -1,10 +1,15 @@
-# Diary Chain
+# Diary Chain — 永久的公共日记
 
 [![Netlify Status](https://api.netlify.com/api/v1/badges/474a177d-1f29-4159-8de4-a071d637b237/deploy-status)](https://app.netlify.com/projects/diary-chain/deploys)
 
-每一条记录，都像刻在石碑上。
+写下即永恒，任何人可见，无人可改。
 
-Diary Chain 是一个不可篡改的个人链上日记。写在链上的每一条记录都无法删除、无法修改——为诚实记录而生。
+- **全文上链**：不只是哈希，完整内容永久保存
+- **不可篡改**：写上去就改不了
+- **不可删除**：没有删除键，没有修改键
+- **规则恒定**：部署者也无法升级合约
+- **自愿打赏**：免费写，喜欢就打赏
+- **开源可审计**：代码公开，任何人可验证
 
 ## 部署拓扑
 
