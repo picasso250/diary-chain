@@ -101,7 +101,7 @@ node deploy.js
 
 | 链 | 合约地址 |
 |---|---------|
-| Ethereum | `0xc316f67824A3508eD4a568391ABc47a4318E5593` |
+| Ethereum | `0x493e084c3959d2728a3277c18ee47ffcc41eff24` |
 | Arbitrum One | `0x09e8c43372CB00eC109D029e321dC7FFf0bb1e28` |
 | Sepolia | `0x3E249b0da8F0a112Ad9b0a9b7cf907712C213021` |
 
@@ -126,11 +126,11 @@ Netlify 自动从 GitHub 仓库部署，配置见 `netlify.toml`。
 
 ## Subgraph 部署（The Graph Studio，Ethereum 主网）
 
-**已部署**（2026-09-24）：
+**已部署**（2026-10-03）：
 
 - Studio 页面：https://thegraph.com/studio/subgraph/diary
-- 查询地址：`https://api.studio.thegraph.com/query/1723159/diary/version/latest`
-- 当前版本：v0.0.1
+- 查询地址：`https://api.studio.thegraph.com/query/1723159/diary/v0.0.2`
+- 当前版本：v0.0.2
 
 后续重新部署：
 
@@ -149,7 +149,7 @@ npm run deploy
 部署完成后，把查询地址填入 `frontend/.env.ethereum`（当前已填好）：
 
 ```
-VITE_SUBGRAPH_URL=https://api.studio.thegraph.com/query/<DEPLOYMENT_ID>/diary/version/latest
+VITE_SUBGRAPH_URL=https://api.studio.thegraph.com/query/<DEPLOYMENT_ID>/diary/v0.0.2
 ```
 
 然后重新构建前端：
@@ -161,8 +161,8 @@ npm run build:ethereum
 
 ## 已知事项（暂缓处理）
 
-1. **新合约部署要求**：源码已移除强制付费，支持自愿打赏；`EntryCreated` 已改为 `(address,string)`，时间戳从区块获取。现有已部署合约和索引仍使用旧事件格式。上线此版本前须部署新合约、更新前端与 Subgraph 的合约地址及起始区块，并重新部署 Subgraph。
+1. **Ethereum 新合约已部署**：2026-10-03 部署，区块 `26108868`，支持零金额写入和自愿打赏。`EntryCreated(address,string)` 的时间戳从区块获取；前端与 Subgraph v0.0.2 已指向新合约。旧合约中的记录仍保留在链上，新版本时间线只读取新合约。Arbitrum/Sepolia 尚未迁移，当前源码的新事件 ABI 不适用于其旧合约。
 2. **Arbitrum/Sepolia 构建**：这两条链暂未配置 subgraph 与 `VITE_START_BLOCK`，前端走 RPC 回退时会从区块 0 扫描（不现实）。旧版本同样存在该问题，非本次回归；待主网稳定后再处理。
 
-> subgraph 起始区块 `24567600`（`subgraph.yaml` / `networks.json`）：合约部署于区块 `24567728`（`0x176dfb0`），取前 128 块余量；首个 `EntryCreated` 事件在区块 `24567860`。
+> subgraph 起始区块 `26108868`（`subgraph.yaml` / `networks.json`），等于新合约部署区块。
 > 若之后要调整 subgraph（例如增加字段），改完重新 `npm run codegen && npm run build` 后再 `npm run deploy`。

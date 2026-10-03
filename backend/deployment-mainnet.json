@@ -1,0 +1,10 @@
+{
+  "chainId": 1,
+  "owner": "0x806918b917a89956b8af1a2897940c475973e2d3",
+  "transactionHash": "0x52f6c24d2a74f90bcae630cb848a5a57b29f01bda2d02b8050b2b6ca1632938e",
+  "compiler": "0.8.30+commit.73712a01.Emscripten.clang",
+  "status": "confirmed",
+  "contractAddress": "0x493e084c3959d2728a3277c18ee47ffcc41eff24",
+  "blockNumber": 26108868,
+  "gasUsed": 257454
+}

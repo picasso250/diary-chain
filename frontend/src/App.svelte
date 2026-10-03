@@ -289,7 +289,7 @@
       if (SUBGRAPH_URL) {
         try {
           const fromSubgraph = await fetchEntriesFromSubgraph();
-          if (fromSubgraph && fromSubgraph.length > 0) {
+          if (fromSubgraph) {
             allEntries = fromSubgraph;
             perf("fetchEntries done（subgraph，n=" + fromSubgraph.length + "）");
             return;
@@ -368,7 +368,7 @@
     const contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, provider);
     const filter = contract.filters.EntryCreated();
 
-    const cacheKey = "diaryLastScannedBlock_" + TARGET_CHAIN_ID;
+    const cacheKey = "diaryLastScannedBlock_" + TARGET_CHAIN_ID + "_" + CONTRACT_ADDRESS;
     let fromBlock = Math.max(Number(localStorage.getItem(cacheKey) || START_BLOCK), START_BLOCK);
     const latestBlock = await provider.getBlockNumber();
     perf("RPC 回退: latestBlock=" + latestBlock);
@@ -456,9 +456,9 @@
          }
          fetchEntries();
        });
-       fetchEntries();
-       perf("onMount: fetchEntries 已调用");
     }
+    fetchEntries();
+    perf("onMount: fetchEntries 已调用");
     perf("onMount done");
   });
 </script>
