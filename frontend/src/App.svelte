@@ -3,7 +3,7 @@
   import { fade, slide } from "svelte/transition";
   import { ethers } from "ethers";
   import { createAppKit } from "@reown/appkit";
-  import { arbitrum, mainnet, sepolia } from "@reown/appkit/networks";
+  import { mainnet, sepolia } from "@reown/appkit/networks";
   import { EthersAdapter } from "@reown/appkit-adapter-ethers";
   import CryptoJS from "crypto-js";
   import { CONTRACT_ADDRESS, CONTRACT_ABI, TARGET_CHAIN_ID, BLOCK_EXPLORER, NETWORK_NAME, SUBGRAPH_URL, START_BLOCK } from "./lib/constants";
@@ -46,10 +46,11 @@
   });
 
   const REOWN_PROJECT_ID = import.meta.env.VITE_WALLETCONNECT_PROJECT_ID;
-  const appKitNetworks = [mainnet, arbitrum, sepolia];
+  const appKitNetworks = [mainnet, sepolia];
   const appKitNetwork = appKitNetworks.find(
     (network) => Number(network.id) === Number.parseInt(TARGET_CHAIN_ID, 16)
-  ) || mainnet;
+  );
+  if (!appKitNetwork) throw new Error("Unsupported chain configuration");
 
   function initAppKit() {
     if (appKit || !REOWN_PROJECT_ID) return appKit;

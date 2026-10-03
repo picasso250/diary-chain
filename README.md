@@ -16,7 +16,7 @@
 | 域名 | 平台 | 目标链 | 构建模式 |
 |------|------|--------|---------|
 | [diary.io99.xyz](https://diary.io99.xyz) | Cloudflare Workers | Ethereum | `npm run build:ethereum` |
-| [diary-chain.netlify.app](https://diary-chain.netlify.app) | Netlify | Arbitrum One | `npm run build`（默认） |
+| [diary-chain.netlify.app](https://diary-chain.netlify.app) | Netlify | Ethereum（下次构建生效） | `npm run build` |
 | — | 本地开发 | Sepolia（测试） | `npm run dev` |
 
 ## Tech Stack
@@ -35,7 +35,7 @@
 
 ### Infrastructure
 - **Cloudflare Workers** — Ethereum 生产部署（`wrangler.toml`）
-- **Netlify** — Arbitrum One 生产部署（`netlify.toml`）
+- **Netlify** — Ethereum 生产构建（`netlify.toml`）
 - **The Graph Subgraph** — Ethereum 链上日记事件索引（`diary-chain-subgraph/`），免费额度（Subgraph Studio 每月约 10 万次查询）
 
 ### 事件读取（重要）
@@ -73,8 +73,7 @@ npm run dev
 
 | 目标链 | 命令 | 用途 |
 |--------|------|------|
-| Arbitrum One | `npm run build` | Netlify 默认部署 |
-| Ethereum | `npm run build:ethereum` | Cloudflare 部署 |
+| Ethereum | `npm run build` / `npm run build:ethereum` | Cloudflare / Netlify 生产构建 |
 | Sepolia | `npm run build:sepolia` | 测试构建 |
 
 各构建模式对应的环境变量见 `frontend/.env.*`。
@@ -107,7 +106,6 @@ node deploy.js
 | 链 | 合约地址 |
 |---|---------|
 | Ethereum | `0x493e084c3959d2728a3277c18ee47ffcc41eff24` |
-| Arbitrum One | `0x09e8c43372CB00eC109D029e321dC7FFf0bb1e28` |
 | Sepolia | `0x3E249b0da8F0a112Ad9b0a9b7cf907712C213021` |
 
 各链的合约实例及对应前端 env 配置位于 `frontend/.env.{chain}`。
@@ -119,7 +117,7 @@ node deploy.js
 | 链 | 历史合约地址（点击查看区块浏览器） | 说明 |
 |---|---|---|
 | Ethereum 主网（chain ID `1`） | [0xc316f67824A3508eD4a568391ABc47a4318E5593](https://etherscan.io/address/0xc316f67824A3508eD4a568391ABc47a4318E5593) | 2026-10-03 切换前使用的旧合约；部署区块 `24567728` |
-| Arbitrum One（chain ID `42161`） | [0x09e8c43372CB00eC109D029e321dC7FFf0bb1e28](https://arbiscan.io/address/0x09e8c43372CB00eC109D029e321dC7FFf0bb1e28) | 原 Arbitrum 合约，尚未迁移到新事件格式 |
+| Arbitrum One（chain ID `42161`） | [0x09e8c43372CB00eC109D029e321dC7FFf0bb1e28](https://arbiscan.io/address/0x09e8c43372CB00eC109D029e321dC7FFf0bb1e28) | 历史 Arbitrum 合约；运行支持已移除，仅保留数据读取入口 |
 | Sepolia（chain ID `11155111`） | [0x3E249b0da8F0a112Ad9b0a9b7cf907712C213021](https://sepolia.etherscan.io/address/0x3E249b0da8F0a112Ad9b0a9b7cf907712C213021) | 原测试网合约 |
 
 日记存储在交易的 **事件日志** 中，不是合约的可枚举存储变量。读取公开日志不需要连接钱包、提供私钥或发送付费交易，也不依赖本项目网站或 Subgraph。
@@ -151,9 +149,9 @@ npx wrangler deploy
 
 配置见 `wrangler.toml`，Worker 入口为 `frontend/src/worker.js`。
 
-### Netlify（diary-chain.netlify.app → Arbitrum One）
+### Netlify（diary-chain.netlify.app → Ethereum）
 
-Netlify 自动从 GitHub 仓库部署，配置见 `netlify.toml`。
+Netlify 自动从 GitHub 仓库部署，配置见 `netlify.toml`。默认生产构建已改为 Ethereum；远端尚未发布此次改动时，该站可能仍运行之前的 Arbitrum 版本。
 
 ## Subgraph 部署（The Graph Studio，Ethereum 主网）
 
@@ -192,8 +190,8 @@ npm run build:ethereum
 
 ## 已知事项（暂缓处理）
 
-1. **Ethereum 新合约已部署**：2026-10-03 部署，区块 `26108868`，支持零金额写入和自愿打赏。`EntryCreated(address,string)` 的时间戳从区块获取；前端与 Subgraph v0.0.2 已指向新合约。旧合约中的记录仍保留在链上，新版本时间线只读取新合约。Arbitrum/Sepolia 尚未迁移，当前源码的新事件 ABI 不适用于其旧合约。
-2. **Arbitrum/Sepolia 构建**：这两条链暂未配置 subgraph 与 `VITE_START_BLOCK`，前端走 RPC 回退时会从区块 0 扫描（不现实）。旧版本同样存在该问题，非本次回归；待主网稳定后再处理。
+1. **Ethereum 新合约已部署**：2026-10-03 部署，区块 `26108868`，支持零金额写入和自愿打赏。`EntryCreated(address,string)` 的时间戳从区块获取；前端与 Subgraph v0.0.2 已指向新合约。旧合约中的记录仍保留在链上，新版本时间线只读取新合约。Arbitrum 运行支持已移除，历史合约地址与读取说明保留在上文。Sepolia 尚未迁移，当前源码的新事件 ABI 不适用于其旧合约。
+2. **Sepolia 构建**：测试网尚未部署新合约，也未配置 subgraph 与 `VITE_START_BLOCK`。部署新测试合约并更新配置后再使用测试网构建。
 
 > subgraph 起始区块 `26108868`（`subgraph.yaml` / `networks.json`），等于新合约部署区块。
 > 若之后要调整 subgraph（例如增加字段），改完重新 `npm run codegen && npm run build` 后再 `npm run deploy`。
