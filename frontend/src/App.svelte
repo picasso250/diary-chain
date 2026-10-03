@@ -62,7 +62,7 @@
       projectId: REOWN_PROJECT_ID,
       metadata: {
         name: "Diary Chain",
-        description: "On-chain diary",
+        description: "Permanent public diary — full text on chain",
         url: "https://diary.io99.xyz",
         icons: ["https://diary.io99.xyz/vite.svg"],
       },
@@ -471,7 +471,7 @@
       <h1 class="text-xl font-semibold tracking-tight text-zinc-900 flex items-center gap-2">
         Diary Chain
         <span class="text-xs text-zinc-400 font-medium px-2 py-0.5 bg-zinc-100 rounded-full hidden sm:inline-block">
-          Immutable Records
+          Permanent Public Diary
         </span>
       </h1>
       
@@ -507,6 +507,7 @@
           <div class="flex items-center gap-3 text-xs text-zinc-500 font-medium">
             <span class="flex items-center gap-1.5"><svg class="w-3.5 h-3.5 text-zinc-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg> Permanent</span>
             <span class="flex items-center gap-1.5"><svg class="w-3.5 h-3.5 text-zinc-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"/></svg> Public</span>
+            <span class="flex items-center gap-1.5"><svg class="w-3.5 h-3.5 text-zinc-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg> Full Text On Chain</span>
           </div>
 
           <button
