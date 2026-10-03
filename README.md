@@ -107,6 +107,32 @@ node deploy.js
 
 各链的合约实例及对应前端 env 配置位于 `frontend/.env.{chain}`。
 
+### 历史合约与取回日记数据
+
+以下地址永久保留在文档中，供老用户查找和自行读取历史记录。更换前端、索引或合约不会删除这些合约中已经写入的日记。
+
+| 链 | 历史合约地址（点击查看区块浏览器） | 说明 |
+|---|---|---|
+| Ethereum 主网（chain ID `1`） | [0xc316f67824A3508eD4a568391ABc47a4318E5593](https://etherscan.io/address/0xc316f67824A3508eD4a568391ABc47a4318E5593) | 2026-10-03 切换前使用的旧合约；部署区块 `24567728` |
+| Arbitrum One（chain ID `42161`） | [0x09e8c43372CB00eC109D029e321dC7FFf0bb1e28](https://arbiscan.io/address/0x09e8c43372CB00eC109D029e321dC7FFf0bb1e28) | 原 Arbitrum 合约，尚未迁移到新事件格式 |
+| Sepolia（chain ID `11155111`） | [0x3E249b0da8F0a112Ad9b0a9b7cf907712C213021](https://sepolia.etherscan.io/address/0x3E249b0da8F0a112Ad9b0a9b7cf907712C213021) | 原测试网合约 |
+
+日记存储在交易的 **事件日志** 中，不是合约的可枚举存储变量。读取公开日志不需要连接钱包、提供私钥或发送付费交易，也不依赖本项目网站或 Subgraph。
+
+取回自己的历史记录：
+
+1. 在对应链的区块浏览器打开上述合约，找到自己地址发送的写入交易，查看交易的 Logs；批量导出可使用该链 RPC 的 `eth_getLogs`。
+2. 旧合约使用以下事件 ABI，`user` 是索引字段。批量查询时指定旧合约地址，并按自己的钱包地址过滤 `user`；不要使用新合约的两参数事件 ABI。
+
+   ```solidity
+   event EntryCreated(address indexed user, uint256 timestamp, string content);
+   ```
+
+3. 按区块范围分批读取并保存 `user`、`timestamp`、`content`、区块号、交易哈希和日志索引。Ethereum 旧合约可从区块 `24567728` 开始；Arbitrum/Sepolia 可先在区块浏览器找到合约创建交易的区块，再从该区块开始扫描。RPC 历史日志范围受限时，缩小查询窗口或使用支持历史日志的 RPC。
+4. 明文日记可直接读取。以 `AES:` 开头的内容需要原先设置的加密密码，按原前端方式 `CryptoJS.AES.decrypt(content.slice(4), password).toString(CryptoJS.enc.Utf8)` 解密；钱包私钥不能替代该密码。
+
+当前 Ethereum 网站和 Subgraph v0.0.2 只读取新合约，旧日记不会自动出现在新时间线中。上述历史地址及事件格式用于独立取回数据。
+
 ## 部署说明
 
 ### Cloudflare Workers（diary.io99.xyz → Ethereum）
