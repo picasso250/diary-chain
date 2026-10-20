@@ -3,7 +3,7 @@
   import { fade, slide } from "svelte/transition";
   import { ethers } from "ethers";
   import { createAppKit } from "@reown/appkit";
-  import { mainnet, sepolia } from "@reown/appkit/networks";
+  import { arbitrum } from "@reown/appkit/networks";
   import { EthersAdapter } from "@reown/appkit-adapter-ethers";
   import CryptoJS from "crypto-js";
   import { CONTRACT_ADDRESS, CONTRACT_ABI, TARGET_CHAIN_ID, BLOCK_EXPLORER, NETWORK_NAME, SUBGRAPH_URL, START_BLOCK } from "./lib/constants";
@@ -46,7 +46,7 @@
   });
 
   const REOWN_PROJECT_ID = import.meta.env.VITE_WALLETCONNECT_PROJECT_ID;
-  const appKitNetworks = [mainnet, sepolia];
+  const appKitNetworks = [arbitrum];
   const appKitNetwork = appKitNetworks.find(
     (network) => Number(network.id) === Number.parseInt(TARGET_CHAIN_ID, 16)
   );
@@ -381,8 +381,8 @@
 
     return (await Promise.all(logs.map(async log => parseEntry({
       user: log.args[0],
-      timestamp: (await log.getBlock()).timestamp,
-      content: log.args[1],
+      timestamp: Number(log.args[1]),
+      content: log.args[2],
       blockNumber: log.blockNumber,
       hash: log.transactionHash
     })))).reverse();

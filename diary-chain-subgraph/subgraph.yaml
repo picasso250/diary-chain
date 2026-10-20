@@ -6,11 +6,11 @@ schema:
 dataSources:
   - kind: ethereum
     name: OnChainDiary
-    network: mainnet
+    network: arbitrum-one
     source:
-      address: "0x493e084c3959d2728a3277c18ee47ffcc41eff24"
+      address: "0x09e8c43372CB00eC109D029e321dC7FFf0bb1e28"
       abi: OnChainDiary
-      startBlock: 26108868
+      startBlock: 419201926
     mapping:
       kind: ethereum/events
       apiVersion: 0.0.9
@@ -21,6 +21,6 @@ dataSources:
         - name: OnChainDiary
           file: ./abis/OnChainDiary.json
       eventHandlers:
-        - event: EntryCreated(indexed address,string)
+        - event: EntryCreated(indexed address,uint256,string)
           handler: handleEntryCreated
       file: ./src/on-chain-diary.ts

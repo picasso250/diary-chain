@@ -1,8 +1,8 @@
 {
-  "mainnet": {
+  "arbitrum-one": {
     "OnChainDiary": {
-      "address": "0x493e084c3959d2728a3277c18ee47ffcc41eff24",
-      "startBlock": 26108868
+      "address": "0x09e8c43372CB00eC109D029e321dC7FFf0bb1e28",
+      "startBlock": 419201926
     }
   }
 }
